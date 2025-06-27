@@ -10,43 +10,40 @@ const urlInput = ref(null);
 const titleInput = ref(null);
 
 const pageHeading = computed(() => {
-  return locale.value ? 'URL Collection Tool' : '收藏網址⼩⼯具';
+  return locale.value ? '收藏網址⼩⼯具' : 'URL Collection Tool';
 });
 const urlHeading = computed(() => {
-  return locale.value ? 'Please Enter URL' : '請輸入網址';
+  return locale.value ? '請輸入網址' : 'Please Enter URL';
 });
 const urlPlaceholder = computed(() => {
-  return locale.value ? 'Enter URL' : '輸入網址';
+  return locale.value ? '輸入網址' : 'Enter URL';
 });
 const addTitleText = computed(() => {
-  return locale.value ? 'Add Title' : '新增標題';
+  return locale.value ? '新增標題' : 'Add Title';
 });
 const optionalText = computed(() => {
-  return locale.value ? 'Optional' : '選填';
+  return locale.value ? '選填' : 'Optional';
 });
 const titleHeading = computed(() => {
-  return locale.value ? 'Please Enter Title' : '請輸入標題';
+  return locale.value ? '請輸入標題' : 'Please Enter Title';
 });
 const allowTitleHeading = computed(() => {
-  return locale.value ? 'Enable "Add Title"' : '啟用“新增標題”';
+  return locale.value ? '啟用"新增標題"' : 'Enable "Add Title"';
 });
 const titlePlaceholder = computed(() => {
-  return locale.value ? 'Enter Title' : '輸入標題';
+  return locale.value ? '輸入標題' : 'Enter Title';
 });
 const addText = computed(() => {
-  return locale.value ? 'Add' : '新增';
+  return locale.value ? '新增' : 'Add';
 });
-
 const clearAllText = computed(() => {
-  return locale.value ? 'Clear All' : '清除全部';
+  return locale.value ? '清除全部' : 'Clear All';
 });
-
 const collectionTitle = computed(() => {
-  return locale.value ? 'URL Collection' : '網址清單';
+  return locale.value ? '網址清單' : 'URL Collection';
 });
-
 const emptyListText = computed(() => {
-  return locale.value ? 'No items in the list' : '網址清清單中沒有項目單';
+  return locale.value ? '網址清單中沒有項目' : 'No items in the list';
 });
 
 const addButtonPermission = computed(() => {
@@ -139,11 +136,18 @@ onMounted(() => {
       </h1>
     </div>
     <div class="flex-none">
-      <button class="btn btn-xs btn-outline py-4" @click="toggleLocale">
-        <span class="material-symbols-outlined"> language </span>
-        <span v-if="locale"> En</span>
-        <span v-if="!locale">Tw</span>
-      </button>
+      <label class="swap swap-flip text-sm border-1 rounded-md p-2 hover:bg-base-300">
+      <!-- <button class="btn btn-xs btn-outline py-4" @click="toggleLocale"> -->
+        <!-- <span class="material-symbols-outlined"> language </span> -->
+          <!-- this hidden checkbox controls the state -->
+          <input type="checkbox" @click="toggleLocale"/>
+
+          <div class="swap-on">En</div>
+          <div class="swap-off">中</div>
+          <!-- <span v-if="locale"> En</span>
+            <span v-if="!locale">Tw</span> -->
+          <!-- </button> -->
+        </label>
     </div>
   </div>
 
@@ -205,7 +209,7 @@ onMounted(() => {
   <hr />
   <div class="p-4 mt-3">
     <h2 class="text-xl font-bold mb-3 underline">{{ collectionTitle }}</h2>
-    <transition-group name="slide-fade" tag="ul" class="space-y-2">
+    <transition-group name="slide-fade" tag="ul" class="space-y-2 w-fit">
       <li
         v-for="(item, index) in collection"
         :key="index"
