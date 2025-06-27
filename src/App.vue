@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
+import FallingStars from './components/FallingStars.vue'
 
 const locale = ref(true);
 const addTitle = ref(false);
@@ -8,6 +9,9 @@ const newTitle = ref('');
 const collection = ref([]);
 const urlInput = ref(null);
 const titleInput = ref(null);
+const addToast = ref(false)
+const deleteToast = ref(false)
+const showToast = ref(true)
 
 const pageHeading = computed(() => {
   return locale.value ? '收藏網址⼩⼯具' : 'URL Collection Tool';
@@ -46,6 +50,14 @@ const emptyListText = computed(() => {
   return locale.value ? '網址清單中沒有項目' : 'No items in the list';
 });
 
+const addToastText = computed(() => {
+  return locale.value ? '已新增網址' : 'New URL Added';
+});
+
+const deleteToastText = computed(() => {
+  return locale.value ? '網址清單已刪除' : 'URL Collection Deleted';
+});
+
 const addButtonPermission = computed(() => {
   if (!addTitle.value && newUrl.value.length !== 0) return false;
   if (
@@ -57,12 +69,42 @@ const addButtonPermission = computed(() => {
   return true;
 });
 
+// Add this new function for URL formatting
+const formatUrl = (url) => {
+  if (!url) return '';
+  // Remove any whitespace
+  url = url.trim();
+  // If it already has a protocol, return as is
+  if (url.match(/^https?:\/\//i)) {
+    return url;
+  }
+  // If it starts with www., add https://
+  if (url.match(/^www\./i)) {
+    return `https://${url}`;
+  }
+  // If it looks like a domain (has a dot and no spaces), add https://www.
+  if (url.includes('.') && !url.includes(' ') && !url.includes('/')) {
+    return `https://www.${url}`;
+  }
+  // If it starts with a domain pattern, add https://
+  if (url.match(/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)) {
+    return `https://${url}`;
+  }
+  // Default: assume it needs https://
+  return `https://${url}`;
+};
+
+// Updated addUrl function
 const addUrl = () => {
   if (newUrl.value === '') return;
   if (newUrl.value.trim()) {
-    const title = extractTitle(newUrl.value);
+    // Format the URL to make it clickable
+    const formattedUrl = formatUrl(newUrl.value);
+    const title = extractTitle(formattedUrl);
+
     const urlObj = {
-      url: newUrl.value,
+      id: collection.value.length + 1,
+      url: formattedUrl, // Store the formatted URL instead of raw input
       title: addTitle.value ? newTitle.value : title,
     };
     collection.value.push(urlObj);
@@ -70,14 +112,53 @@ const addUrl = () => {
     newUrl.value = ''; // Clear input
     newTitle.value = ''; // Clear input
     addTitle.value = false;
+    showAddToast();
     if (urlInput.value) {
       urlInput.value.focus();
     }
   }
 };
 
+const showAddToast = () => {
+  console.log('toast~')
+  addToast.value = true;
+  showToast.value = true;
+  setTimeout(() => {
+    addToast.value = false;
+    showToast.value = false;
+  }, 1500);
+}
+
+const showDeleteToast = () => {
+  deleteToast.value = true;
+  showToast.value = true;
+  setTimeout(() => {
+    deleteToast.value = false;
+    showToast.value = false;
+  }, 2500);
+}
+
+// Updated extractTitle function to work with formatted URLs
 const extractTitle = (url) => {
   try {
+    // If it's a formatted URL with protocol, use URL constructor
+    if (url.startsWith('http')) {
+      const urlObj = new URL(url);
+      let hostname = urlObj.hostname;
+      hostname = hostname.replace(/^www\./, '');
+
+      // Extract the main domain name
+      const match = hostname.match(/^([^.]+)\./);
+      if (match && match[1]) {
+        let extractedText = match[1];
+        return (
+          extractedText.charAt(0).toUpperCase() +
+          extractedText.slice(1).toLowerCase()
+        );
+      }
+      return hostname;
+    } else {
+      // Fallback for raw input (though this shouldn't happen after formatting)
     let hostname = url;
     hostname = hostname.replace(/^www\./, '');
     const match = hostname.match(/^([^.]+)\.[a-z]{2,}(?:\.[a-z]{2})?$/i);
@@ -88,6 +169,7 @@ const extractTitle = (url) => {
         extractedText.charAt(0).toUpperCase() +
         extractedText.slice(1).toLowerCase()
       );
+      }
     }
   } catch (error) {
     console.error('Invalid URL or error parsing:', error);
@@ -108,11 +190,13 @@ const focusTitleInput = () => {
 const deleteSingleUrl = (index) => {
   if (!collection.value) return;
   collection.value.splice(index, 1);
+  localStorage.setItem('url-collection', JSON.stringify(collection.value));
 };
 
 const clearCollection = () => {
   collection.value = [];
   localStorage.removeItem('url-collection');
+  showDeleteToast();
 };
 
 const toggleLocale = () => {
@@ -129,7 +213,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="navbar bg-base-100 shadow-sm px-5">
+  <FallingStars :numberOfStars="500" :speed="0.2"/>
+  <div class="navbar shadow-sm p-8">
     <div class="flex-1">
       <h1 class="text-xl sm:text-3xl font-bold">
         <span>{{ pageHeading }}</span>
@@ -137,53 +222,50 @@ onMounted(() => {
     </div>
     <div class="flex-none">
       <label class="swap swap-flip text-sm border-1 rounded-md p-2 hover:bg-base-300">
-      <!-- <button class="btn btn-xs btn-outline py-4" @click="toggleLocale"> -->
-        <!-- <span class="material-symbols-outlined"> language </span> -->
           <!-- this hidden checkbox controls the state -->
           <input type="checkbox" @click="toggleLocale"/>
 
           <div class="swap-on">En</div>
           <div class="swap-off">中</div>
-          <!-- <span v-if="locale"> En</span>
-            <span v-if="!locale">Tw</span> -->
-          <!-- </button> -->
         </label>
     </div>
   </div>
 
-  <div class="flex flex-col gap-5 p-4 mb-3">
+  <div class="flex flex-col gap-5 p-8 mb-3">
     <div>
-      <fieldset class="fieldset">
-        <legend class="fieldset-legend text-md">{{ urlHeading }}</legend>
+      <fieldset class="fieldset flex flex-col">
+        <div class="flex justify-between w-100">
+          <legend class="fieldset-legend text-lg">{{ urlHeading }}</legend>
+          <label class="label flex items-center">
+            <input
+              type="checkbox"
+              checked="checked"
+              class="checkbox checkbox-sm"
+              v-model="addTitle"
+            />
+            {{ addTitleText }}
+          </label>
+        </div>
         <input
           ref="urlInput"
           type="text"
-          class="input"
+          class="input w-full sm:w-100"
           :placeholder="urlPlaceholder"
           v-model="newUrl"
           @keyup.enter="focusTitleInput"
         />
-        <label class="label mt-3">
-          <input
-            type="checkbox"
-            checked="checked"
-            class="checkbox checkbox-xs"
-            v-model="addTitle"
-          />
-          {{ addTitleText }}
-        </label>
       </fieldset>
       <fieldset class="fieldset" :disabled="!addTitle">
-        <legend v-if="addTitle" class="fieldset-legend">
+        <legend v-if="addTitle" class="fieldset-legend text-lg">
           {{ titleHeading }}
         </legend>
-        <legend v-if="!addTitle" class="fieldset-legend">
+        <legend v-if="!addTitle" class="fieldset-legend text-md">
           {{ allowTitleHeading }}
         </legend>
         <input
           ref="titleInput"
           type="text"
-          class="input"
+          class="input w-full sm:w-100"
           :placeholder="titlePlaceholder"
           v-model="newTitle"
           @keyup.enter="addUrl"
@@ -207,12 +289,15 @@ onMounted(() => {
     </div>
   </div>
   <hr />
-  <div class="p-4 mt-3">
-    <h2 class="text-xl font-bold mb-3 underline">{{ collectionTitle }}</h2>
+  <div class="p-8 mt-3">
+    <h2 class="text-xl font-bold mb-3 underline italic">{{ collectionTitle }}</h2>
+    <span v-if="collection.length === 0" class="text-gray-500 italic">
+      {{ emptyListText }}
+    </span>
     <transition-group name="slide-fade" tag="ul" class="space-y-2 w-fit">
       <li
         v-for="(item, index) in collection"
-        :key="index"
+        :key="item.id"
         class="flex gap-3 items-center mb-3"
       >
         <button
@@ -233,11 +318,19 @@ onMounted(() => {
         >
       </li>
       <!-- Empty state -->
-      <p v-if="collection.length === 0" class="text-gray-500 italic">
-        {{ emptyListText }}
-      </p>
     </transition-group>
+    
   </div>
+  <transition name="toast">
+    <div class="toast toast-center toast-middle" v-if="showToast">
+      <div v-if="addToast" class="alert alert-warning bg-base-content">
+        <span class="text-lg">{{ addToastText }}</span>
+      </div>
+      <div v-if="deleteToast" class="alert alert-error">
+        <span class="text-lg">{{ deleteToastText }}</span>
+      </div>
+    </div>
+  </transition>
 </template>
 
 <style scoped>
@@ -263,4 +356,30 @@ onMounted(() => {
 .slide-fade-move {
   transition: transform 0.3s ease;
 }
+
+/* Enter & Leave initial/final states */
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(100%);
+}
+
+/* Enter & Leave transition */
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 1s ease-out;
+}
+
+/* Enter final state */
+.toast-enter-to {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Leave starting state */
+.toast-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 </style>
