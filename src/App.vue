@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from 'vue';
 import FallingStars from './components/FallingStars.vue'
 
 const locale = ref(true);
-const addTitle = ref(false);
+const addTitleCheck = ref(false);
 const newUrl = ref('');
 const newTitle = ref('');
 const collection = ref([]);
@@ -59,9 +59,9 @@ const deleteToastText = computed(() => {
 });
 
 const addButtonPermission = computed(() => {
-  if (!addTitle.value && newUrl.value.length !== 0) return false;
+  if (!addTitleCheck.value && newUrl.value.length !== 0) return false;
   if (
-    addTitle.value &&
+    addTitleCheck.value &&
     newUrl.value.length !== 0 &&
     newTitle.value.length !== 0
   )
@@ -105,13 +105,13 @@ const addUrl = () => {
     const urlObj = {
       id: collection.value.length + 1,
       url: formattedUrl, // Store the formatted URL instead of raw input
-      title: addTitle.value ? newTitle.value : title,
+      title: addTitleCheck.value ? newTitle.value : title,
     };
     collection.value.push(urlObj);
     localStorage.setItem('url-collection', JSON.stringify(collection.value));
     newUrl.value = ''; // Clear input
     newTitle.value = ''; // Clear input
-    addTitle.value = false;
+    addTitleCheck.value = false;
     showAddToast();
     if (urlInput.value) {
       urlInput.value.focus();
@@ -120,7 +120,6 @@ const addUrl = () => {
 };
 
 const showAddToast = () => {
-  console.log('toast~')
   addToast.value = true;
   showToast.value = true;
   setTimeout(() => {
@@ -178,7 +177,7 @@ const extractTitle = (url) => {
 };
 
 const focusTitleInput = () => {
-  if (!addTitle.value) {
+  if (!addTitleCheck.value) {
     addUrl();
     return;
   }
@@ -199,13 +198,25 @@ const clearCollection = () => {
   showDeleteToast();
 };
 
+const localeByText = computed(() => {
+  return locale.value ? 'tw' : 'en'
+})
+
 const toggleLocale = () => {
   locale.value = !locale.value;
+  localStorage.setItem('locale', JSON.stringify(localeByText.value));
 };
+
+const setLocale = () => {
+  const storedLocale = localStorage.getItem('locale');
+  if (storedLocale != null) {
+    locale.value = JSON.parse(storedLocale) === 'tw'
+  }
+}
 
 onMounted(() => {
   const initialValue = localStorage.getItem('url-collection');
-  console.log('entered Vue Project', initialValue);
+  setLocale();
   if (initialValue != null) {
     collection.value = JSON.parse(initialValue);
   }
@@ -213,7 +224,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <FallingStars :numberOfStars="500" :speed="0.2"/>
+  <FallingStars :numberOfStars="200" :speed="0.1"/>
   <div class="navbar shadow-sm p-8">
     <div class="flex-1">
       <h1 class="text-xl sm:text-3xl font-bold">
@@ -223,10 +234,10 @@ onMounted(() => {
     <div class="flex-none">
       <label class="swap swap-flip text-sm border-1 rounded-md p-2 hover:bg-base-300">
           <!-- this hidden checkbox controls the state -->
-          <input type="checkbox" @click="toggleLocale"/>
+          <input type="checkbox" @click="toggleLocale" v-model="locale"/>
 
-          <div class="swap-on">En</div>
-          <div class="swap-off">中</div>
+          <div class="swap-on">中</div>
+          <div class="swap-off">En</div>
         </label>
     </div>
   </div>
@@ -234,14 +245,14 @@ onMounted(() => {
   <div class="flex flex-col gap-5 p-8 mb-3">
     <div>
       <fieldset class="fieldset flex flex-col">
-        <div class="flex justify-between w-100">
+        <div class="flex justify-between w-full sm:w-100">
           <legend class="fieldset-legend text-lg">{{ urlHeading }}</legend>
           <label class="label flex items-center">
             <input
               type="checkbox"
               checked="checked"
               class="checkbox checkbox-sm"
-              v-model="addTitle"
+              v-model="addTitleCheck"
             />
             {{ addTitleText }}
           </label>
@@ -255,13 +266,17 @@ onMounted(() => {
           @keyup.enter="focusTitleInput"
         />
       </fieldset>
-      <fieldset class="fieldset" :disabled="!addTitle">
-        <legend v-if="addTitle" class="fieldset-legend text-lg">
-          {{ titleHeading }}
-        </legend>
-        <legend v-if="!addTitle" class="fieldset-legend text-md">
-          {{ allowTitleHeading }}
-        </legend>
+      <fieldset class="fieldset" :disabled="!addTitleCheck">
+        <div class="flex items-end gap-5">
+          <legend class="fieldset-legend text-lg">
+            {{ titleHeading }}
+          </legend>
+          <transition name="slide-fade">
+          <span v-if="!addTitleCheck" class="text-xs py-2 text-rose-300">
+            < {{ allowTitleHeading }} >
+          </span>
+        </transition>
+        </div>
         <input
           ref="titleInput"
           type="text"
