@@ -224,7 +224,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <FallingStars :numberOfStars="200" :speed="0.1"/>
+  <FallingStars :numberOfStars="100" :speed="0.2"/>
   <div class="navbar shadow-sm p-8">
     <div class="flex-1">
       <h1 class="text-xl sm:text-3xl font-bold">
