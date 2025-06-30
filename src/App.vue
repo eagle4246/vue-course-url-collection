@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import FallingStars from './components/FallingStars.vue'
+import { formatUrl, extractTitle } from './util/handleUrl.js';
 
 const locale = ref(true);
 const addTitleCheck = ref(false);
@@ -9,9 +10,11 @@ const newTitle = ref('');
 const collection = ref([]);
 const urlInput = ref(null);
 const titleInput = ref(null);
-const addToast = ref(false)
-const deleteToast = ref(false)
-const showToast = ref(true)
+const addToast = ref(false);
+const deleteToast = ref(false);
+const showToast = ref(true);
+const fallingStarsNumber = ref(200);
+const fallingSpeed = ref(0.2);
 
 const pageHeading = computed(() => {
   return locale.value ? '收藏網址⼩⼯具' : 'URL Collection Tool';
@@ -40,6 +43,15 @@ const titlePlaceholder = computed(() => {
 const addText = computed(() => {
   return locale.value ? '新增' : 'Add';
 });
+
+const confirmText = computed(() => {
+  return locale.value ? '確認' : 'Confirm';
+});
+
+const closeText = computed(() => {
+  return locale.value ? '關閉' : 'Close';
+});
+
 const clearAllText = computed(() => {
   return locale.value ? '清除全部' : 'Clear All';
 });
@@ -58,6 +70,14 @@ const deleteToastText = computed(() => {
   return locale.value ? '網址清單已刪除' : 'URL Collection Deleted';
 });
 
+const modalTitleText = computed(() => {
+  return locale.value ? '刪除完整的網址清單' : 'Deleting the complete URL Collection';
+});
+
+const modalMessageText = computed(() => {
+  return locale.value ? '按一下「確認」可從清單中刪除所有項目' : 'Click Confirm to remove all items from the collection';
+});
+
 const addButtonPermission = computed(() => {
   if (!addTitleCheck.value && newUrl.value.length !== 0) return false;
   if (
@@ -69,53 +89,37 @@ const addButtonPermission = computed(() => {
   return true;
 });
 
-// Add this new function for URL formatting
-const formatUrl = (url) => {
-  if (!url) return '';
-  // Remove any whitespace
-  url = url.trim();
-  // If it already has a protocol, return as is
-  if (url.match(/^https?:\/\//i)) {
-    return url;
-  }
-  // If it starts with www., add https://
-  if (url.match(/^www\./i)) {
-    return `https://${url}`;
-  }
-  // If it looks like a domain (has a dot and no spaces), add https://www.
-  if (url.includes('.') && !url.includes(' ') && !url.includes('/')) {
-    return `https://www.${url}`;
-  }
-  // If it starts with a domain pattern, add https://
-  if (url.match(/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)) {
-    return `https://${url}`;
-  }
-  // Default: assume it needs https://
-  return `https://${url}`;
-};
-
 // Updated addUrl function
 const addUrl = () => {
-  if (newUrl.value === '') return;
-  if (newUrl.value.trim()) {
-    // Format the URL to make it clickable
-    const formattedUrl = formatUrl(newUrl.value);
-    const title = extractTitle(formattedUrl);
+  // Ensure newUrl.value is not empty or just whitespace
+  if (!newUrl.value || newUrl.value.trim() === '') {
+    return; // Do nothing if input is empty
+  }
 
-    const urlObj = {
-      id: collection.value.length + 1,
-      url: formattedUrl, // Store the formatted URL instead of raw input
-      title: addTitleCheck.value ? newTitle.value : title,
-    };
-    collection.value.push(urlObj);
-    localStorage.setItem('url-collection', JSON.stringify(collection.value));
-    newUrl.value = ''; // Clear input
-    newTitle.value = ''; // Clear input
-    addTitleCheck.value = false;
-    showAddToast();
-    if (urlInput.value) {
-      urlInput.value.focus();
-    }
+  // Format the URL to make it clickable
+  const formattedUrl = formatUrl(newUrl.value);
+
+  // Extract the title, now with the improved TLD check
+  const title = extractTitle(formattedUrl);
+
+  const urlObj = {
+    id: collection.value.length + 1, // Simple ID for demonstration
+    url: formattedUrl, // Store the formatted URL
+    title: addTitleCheck.value ? newTitle.value : title, // Use user-provided title if checked, otherwise extracted
+  };
+
+  collection.value.push(urlObj);
+  localStorage.setItem('url-collection', JSON.stringify(collection.value)); // Persist to local storage
+
+  // Clear inputs and reset state
+  newUrl.value = '';
+  newTitle.value = '';
+  addTitleCheck.value = false;
+
+  showAddToast(); // Assuming this function exists for user feedback
+
+  if (urlInput.value) { // Assuming urlInput is a ref to your URL input field
+    urlInput.value.focus();
   }
 };
 
@@ -136,45 +140,6 @@ const showDeleteToast = () => {
     showToast.value = false;
   }, 2500);
 }
-
-// Updated extractTitle function to work with formatted URLs
-const extractTitle = (url) => {
-  try {
-    // If it's a formatted URL with protocol, use URL constructor
-    if (url.startsWith('http')) {
-      const urlObj = new URL(url);
-      let hostname = urlObj.hostname;
-      hostname = hostname.replace(/^www\./, '');
-
-      // Extract the main domain name
-      const match = hostname.match(/^([^.]+)\./);
-      if (match && match[1]) {
-        let extractedText = match[1];
-        return (
-          extractedText.charAt(0).toUpperCase() +
-          extractedText.slice(1).toLowerCase()
-        );
-      }
-      return hostname;
-    } else {
-      // Fallback for raw input (though this shouldn't happen after formatting)
-    let hostname = url;
-    hostname = hostname.replace(/^www\./, '');
-    const match = hostname.match(/^([^.]+)\.[a-z]{2,}(?:\.[a-z]{2})?$/i);
-
-    if (match && match[1]) {
-      let extractedText = match[1];
-      return (
-        extractedText.charAt(0).toUpperCase() +
-        extractedText.slice(1).toLowerCase()
-      );
-      }
-    }
-  } catch (error) {
-    console.error('Invalid URL or error parsing:', error);
-  }
-  return 'Untitled'; // Fallback title
-};
 
 const focusTitleInput = () => {
   if (!addTitleCheck.value) {
@@ -224,7 +189,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <FallingStars :numberOfStars="100" :speed="0.2"/>
+  <FallingStars :numberOfStars="fallingStarsNumber" :speed="fallingSpeed" />
   <div class="navbar shadow-sm p-8">
     <div class="flex-1">
       <h1 class="text-xl sm:text-3xl font-bold">
@@ -232,13 +197,35 @@ onMounted(() => {
       </h1>
     </div>
     <div class="flex-none">
+      <div class="dropdown dropdown-end">
+        <div tabindex="0" role="button" class="btn btn-ghost m-1">
+          <span class="material-symbols-outlined">
+            settings
+          </span>
+        </div>
+        <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
+          <li>
+            <span>Number of Stars</span>
+            <input 
+              type="number" 
+              class="input 
+              validator" required
+              v-model="fallingStarsNumber"
+              placeholder="Between 1 to 1000" min="1" max="1000" title="Must be between be 1 to 1000" />
+          </li>
+          <li>
+            <span>Falling Speed</span>
+            <input type="range" min="0" max="10" class="range" step="any" v-model="fallingSpeed"/>
+          </li>
+        </ul>
+      </div>
       <label class="swap swap-flip text-sm border-1 rounded-md p-2 hover:bg-base-300">
-          <!-- this hidden checkbox controls the state -->
-          <input type="checkbox" @click="toggleLocale" v-model="locale"/>
+        <!-- this hidden checkbox controls the state -->
+        <input type="checkbox" @click="toggleLocale" v-model="locale" />
 
-          <div class="swap-on">中</div>
-          <div class="swap-off">En</div>
-        </label>
+        <div class="swap-on">中</div>
+        <div class="swap-off">En</div>
+      </label>
     </div>
   </div>
 
@@ -248,23 +235,12 @@ onMounted(() => {
         <div class="flex justify-between w-full sm:w-100">
           <legend class="fieldset-legend text-lg">{{ urlHeading }}</legend>
           <label class="label flex items-center">
-            <input
-              type="checkbox"
-              checked="checked"
-              class="checkbox checkbox-sm"
-              v-model="addTitleCheck"
-            />
+            <input type="checkbox" checked="checked" class="checkbox checkbox-sm" v-model="addTitleCheck" />
             {{ addTitleText }}
           </label>
         </div>
-        <input
-          ref="urlInput"
-          type="text"
-          class="input w-full sm:w-100"
-          :placeholder="urlPlaceholder"
-          v-model="newUrl"
-          @keyup.enter="focusTitleInput"
-        />
+        <input ref="urlInput" type="text" class="input w-full sm:w-100" :placeholder="urlPlaceholder" v-model="newUrl"
+          @keyup.enter="focusTitleInput" />
       </fieldset>
       <fieldset class="fieldset" :disabled="!addTitleCheck">
         <div class="flex items-end gap-5">
@@ -272,32 +248,23 @@ onMounted(() => {
             {{ titleHeading }}
           </legend>
           <transition name="slide-fade">
-          <span v-if="!addTitleCheck" class="text-xs py-2 text-rose-300">
-            < {{ allowTitleHeading }} >
-          </span>
-        </transition>
+            <span v-if="!addTitleCheck" class="text-xs py-2 text-rose-300">
+              < {{ allowTitleHeading }}>
+            </span>
+          </transition>
         </div>
-        <input
-          ref="titleInput"
-          type="text"
-          class="input w-full sm:w-100"
-          :placeholder="titlePlaceholder"
-          v-model="newTitle"
-          @keyup.enter="addUrl"
-        />
+        <input ref="titleInput" type="text" class="input w-full sm:w-100" :placeholder="titlePlaceholder"
+          v-model="newTitle" @keyup.enter="addUrl" />
         <p class="label">{{ optionalText }}</p>
       </fieldset>
     </div>
     <div class="flex flex-col sm:flex-row gap-3">
-      <button
-        class="btn btn-outline btn-lg btn-full sm:btn-wide flex items-center"
-        @click="addUrl"
-        :disabled="addButtonPermission"
-      >
+      <button class="btn btn-outline btn-lg btn-full sm:btn-wide flex items-center" @click="addUrl"
+        :disabled="addButtonPermission">
         <span class="material-symbols-outlined"> add_circle </span>
         {{ addText }}
       </button>
-      <button class="btn btn-soft btn-error btn-lg" @click="clearCollection">
+      <button class="btn btn-soft btn-error btn-lg" onclick="my_modal_1.showModal()">
         <span class="material-symbols-outlined"> delete </span>
         {{ clearAllText }}
       </button>
@@ -310,31 +277,18 @@ onMounted(() => {
       {{ emptyListText }}
     </span>
     <transition-group name="slide-fade" tag="ul" class="space-y-2 w-fit">
-      <li
-        v-for="(item, index) in collection"
-        :key="item.id"
-        class="flex gap-3 items-center mb-3"
-      >
-        <button
-          class="cursor-pointer flex items-center"
-          @click="deleteSingleUrl(index)"
-        >
-          <span
-            class="material-symbols-outlined hover:text-white transition-colors duration-500 cursor-pointer"
-          >
+      <li v-for="(item, index) in collection" :key="item.id" class="flex gap-3 items-center mb-3">
+        <button class="cursor-pointer flex items-center" @click="deleteSingleUrl(index)">
+          <span class="material-symbols-outlined hover:text-white transition-colors duration-500 cursor-pointer">
             delete
           </span>
         </button>
-        <a
-          :href="item.url"
-          target="_blank"
-          class="hover:text-white transition-colors duration-500"
-          >{{ item.title }} | {{ item.url }}</a
-        >
+        <a :href="item.url" target="_blank" class="hover:text-white transition-colors duration-500">{{ item.title }} |
+          {{ item.url }}</a>
       </li>
       <!-- Empty state -->
     </transition-group>
-    
+
   </div>
   <transition name="toast">
     <div class="toast toast-center toast-middle" v-if="showToast">
@@ -346,6 +300,19 @@ onMounted(() => {
       </div>
     </div>
   </transition>
+<dialog id="my_modal_1" class="modal">
+  <div class="modal-box">
+    <h3 class="text-lg font-bold">{{ modalTitleText }}</h3>
+    <p class="py-4">{{ modalMessageText }}</p>
+    <div class="modal-action">
+      <form method="dialog ">
+        <!-- if there is a button in form, it will close the modal -->
+        <button class="btn" @click="clearCollection">{{ confirmText }}</button>
+        <button class="btn ml-3">{{ closeText }}</button>
+      </form>
+    </div>
+  </div>
+</dialog>
 </template>
 
 <style scoped>
@@ -396,5 +363,4 @@ onMounted(() => {
   opacity: 1;
   transform: translateY(0);
 }
-
 </style>
